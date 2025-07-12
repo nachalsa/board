@@ -75,6 +75,11 @@ func adminIndexHandler(c *gin.Context) {
 	defer rows.Close()
 
 	var posts []AdminPost
+	kst, err := time.LoadLocation("Asia/Seoul")
+    if err != nil {
+        log.Printf("관리자 페이지 시간대 로드 실패: %v", err)
+        kst = time.UTC
+    }
 	for rows.Next() {
 		var post AdminPost
 		var title, content, fileName, filePath sql.NullString
@@ -92,6 +97,7 @@ func adminIndexHandler(c *gin.Context) {
 		post.FilePath = filePath.String
 		post.FileSize = fileSize.Int64
 		post.FileSizeMB = float64(fileSize.Int64) / 1048576
+		post.CreatedAt = post.CreatedAt.In(kst)
 		
 		posts = append(posts, post)
 	}
