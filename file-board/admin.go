@@ -79,7 +79,7 @@ func adminIndexHandler(c *gin.Context) {
 		var post AdminPost
 		var title, content, fileName, filePath sql.NullString
 		var fileSize sql.NullInt64
-		
+
 		err := rows.Scan(&post.ID, &title, &content, &fileName, &filePath, &fileSize, &post.PostType, &post.CreatedAt)
 		if err != nil {
 			log.Printf("관리자 게시글 스캔 실패: %v", err)

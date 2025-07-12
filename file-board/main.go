@@ -66,7 +66,7 @@ func initDB() {
 func getUniqueFileName(originalName string) string {
 	uploadDir := "./uploads"
 	filePath := filepath.Join(uploadDir, originalName)
-	
+
 	// 파일이 존재하지 않으면 원본 이름 반환
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		return originalName
@@ -75,7 +75,7 @@ func getUniqueFileName(originalName string) string {
 	// 파일 확장자와 이름 분리
 	ext := filepath.Ext(originalName)
 	name := strings.TrimSuffix(originalName, ext)
-	
+
 	// 중복 파일명 처리
 	counter := 1
 	for {
@@ -108,7 +108,7 @@ func indexHandler(c *gin.Context) {
 		var post Post
 		var title, content, fileName, filePath sql.NullString
 		var fileSize sql.NullInt64
-		
+
 		err := rows.Scan(&post.ID, &title, &content, &fileName, &filePath, &fileSize, &post.PostType, &post.CreatedAt)
 		if err != nil {
 			log.Printf("게시글 스캔 실패: %v", err)
@@ -120,8 +120,8 @@ func indexHandler(c *gin.Context) {
 		post.FileName = fileName.String
 		post.FilePath = filePath.String
 		post.FileSize = fileSize.Int64
-		post.FileSizeMB = float64(fileSize.Int64) / 1048576 
-		
+		post.FileSizeMB = float64(fileSize.Int64) / 1048576
+
 		posts = append(posts, post)
 	}
 
