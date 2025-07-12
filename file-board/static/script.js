@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeFileInput();
     initializeForms();
     initializeContentToggle();
+    updateAllDates();
+    
+    setInterval(updateAllDates, 60000); 
 });
 
 // 드래그 앤 드롭 초기화
@@ -432,3 +435,51 @@ if (window.location.hostname === 'localhost') {
         utils: 'utils 객체의 유틸리티 함수들'
     });
 }
+
+
+// static/script.js 파일의 끝 부분에 추가
+
+// 시간 'n분 전' 형태로 바꿔주는 함수
+function timeAgo(dateString) {
+    const now = new Date();
+    const past = new Date(dateString);
+    const seconds = Math.floor((now - past) / 1000);
+
+    let interval = seconds / 31536000; // 년
+    if (interval > 1) {
+        return Math.floor(interval) + "년 전";
+    }
+    interval = seconds / 2592000; // 개월
+    if (interval > 1) {
+        return Math.floor(interval) + "개월 전";
+    }
+    interval = seconds / 86400; // 일
+    if (interval > 1) {
+        return Math.floor(interval) + "일 전";
+    }
+    interval = seconds / 3600; // 시간
+    if (interval > 1) {
+        return Math.floor(interval) + "시간 전";
+    }
+    interval = seconds / 60; // 분
+    if (interval > 1) {
+        return Math.floor(interval) + "분 전";
+    }
+    
+    if (seconds < 10) return "방금 전";
+    return Math.floor(seconds) + "초 전";
+}
+
+// 페이지 로드 시 모든 날짜를 업데이트하는 함수
+function updateAllDates() {
+    const dateElements = document.querySelectorAll('.post-date');
+    dateElements.forEach(el => {
+        const timestamp = el.dataset.timestamp;
+        if (timestamp) {
+            el.textContent = timeAgo(timestamp);
+            // 마우스를 올리면 원래 시간을 보여주는 title 속성 추가 (사용자 경험 향상)
+            el.title = new Date(timestamp).toLocaleString('ko-KR');
+        }
+    });
+}
+
