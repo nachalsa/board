@@ -19,7 +19,7 @@ FROM alpine:latest
 # 필요한 패키지 설치
 RUN apk --no-cache add ca-certificates tzdata
 
-WORKDIR /root/
+WORKDIR /app
 
 # 빌드된 바이너리 복사
 COPY --from=builder /app/main .
