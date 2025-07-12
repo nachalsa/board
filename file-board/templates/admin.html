@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 페이지 - 파일 업로드 게시판</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .admin-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .admin-post-item {
+            position: relative;
+        }
+        
+        .delete-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+        }
+        
+        .delete-btn:hover {
+            background: #ff3838;
+        }
+        
+        .admin-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .confirm-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .confirm-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .confirm-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        
+        .confirm-yes {
+            background: #ff4757;
+            color: white;
+        }
+        
+        .confirm-no {
+            background: #ddd;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="admin-header">
+            <h1>🔧 관리자 페이지</h1>
+            <p>게시글 관리 및 통계 조회</p>
+        </div>
+
+        <!-- 통계 정보 -->
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-number" id="totalPosts">-</div>
+                <div class="stat-label">전체 게시글</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="filePosts">-</div>
+                <div class="stat-label">파일 게시글</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="messagePosts">-</div>
+                <div class="stat-label">메시지 게시글</div>
+            </div>
+        </div>
+
+        <!-- 새로고침 버튼 -->
+        <div style="margin-bottom: 1rem;">
+            <button onclick="location.reload()" class="upload-btn">🔄 새로고침</button>
+            <button onclick="loadStats()" class="browse-btn">📊 통계 갱신</button>
+        </div>
+
+        <!-- 게시글 목록 -->
+        <div class="posts-section">
+            <h2>📝 게시글 관리</h2>
+            
+            {{if .error}}
+                <div class="error-message">{{.error}}</div>
+            {{else if .posts}}
+                <div class="posts-container">
+                    {{range .posts}}
+                    <div class="post-item admin-post-item {{.PostType}}" id="post-{{.ID}}">
+                        <div class="post-header">
+                            <div class="post-info">
+                                {{if eq .PostType "file"}}
+                                    <span class="post-type-icon">📁</span>
+                                    <h3 class="post-title">{{if .Title}}{{.Title}}{{else}}{{.FileName}}{{end}}</h3>
+                                    <div class="post-meta">
+                                        <span class="file-name">{{.FileName}}</span>
+                                        <span class="file-size">({{printf "%.2f" (div (float64 .FileSize) 1048576)}} MB)</span>
+                                        <span class="post-date">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                                        <span class="post-id">ID: {{.ID}}</span>
+                                    </div>
+                                {{else}}
+                                    <span class="post-type-icon">💬</span>
+                                    <h3 class="post-title">{{.Title}}</h3>
+                                    <div class="post-meta">
+                                        <span class="post-date">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                                        <span class="post-id">ID: {{.ID}}</span>
+                                    </div>
+                                {{end}}
+                            </div>
+                            
+                            <div class="post-actions admin-actions">
+                                {{if eq .PostType "file"}}
+                                    <a href="/download/{{.ID}}" class="download-btn" title="다운로드">⬇️</a>
+                                {{end}}
+                                <button class="toggle-btn" onclick="toggleContent({{.ID}})" title="내용 보기/숨기기">
+                                    <span id="toggle-icon-{{.ID}}">▼</span>
+                                </button>
+                                <button class="delete-btn" onclick="confirmDelete({{.ID}}, '{{if .Title}}{{.Title}}{{else}}{{.FileName}}{{end}}')" title="삭제">🗑️</button>
+                            </div>
+                        </div>
+                        
+                        {{if .Content}}
+                        <div class="post-content" id="content-{{.ID}}">
+                            <div class="content-text">{{.Content}}</div>
+                        </div>
+                        {{end}}
+                    </div>
+                    {{end}}
+                </div>
+            {{else}}
+                <div class="no-posts">
+                    <p>아직 게시글이 없습니다.</p>
+                </div>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- 삭제 확인 다이얼로그 -->
+    <div class="confirm-dialog" id="confirmDialog">
+        <div class="confirm-content">
+            <h3>🗑️ 게시글 삭제</h3>
+            <p id="deleteMessage">정말로 이 게시글을 삭제하시겠습니까?</p>
+            <div class="confirm-buttons">
+                <button class="delete-btn confirm-yes" onclick="deletePost()">삭제</button>
+                <button class="browse-btn confirm-no" onclick="closeConfirmDialog()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 로딩 오버레이 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p>처리 중...</p>
+    </div>
+
+    <!-- 알림 메시지 -->
+    <div class="notification" id="notification"></div>
+
+    <footer class="footer">
+        <p>메인 페이지: <a href="http://localhost" target="_blank">http://localhost</a></p>
+    </footer>
+
+    <script>
+        let deletePostId = null;
+
+        // 페이지 로드시 통계 로드
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+        });
+
+        // 통계 로드
+        function loadStats() {
+            fetch('/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('totalPosts').textContent = data.total_posts || 0;
+                    document.getElementById('filePosts').textContent = data.file_posts || 0;
+                    document.getElementById('messagePosts').textContent = data.message_posts || 0;
+                })
+                .catch(error => {
+                    console.error('통계 로드 실패:', error);
+                });
+        }
+
+        // 삭제 확인 다이얼로그 표시
+        function confirmDelete(postId, title) {
+            deletePostId = postId;
+            document.getElementById('deleteMessage').textContent = 
+                `"${title}" 게시글을 정말로 삭제하시겠습니까?`;
+            document.getElementById('confirmDialog').style.display = 'flex';
+        }
+
+        // 삭제 확인 다이얼로그 닫기
+        function closeConfirmDialog() {
+            deletePostId = null;
+            document.getElementById('confirmDialog').style.display = 'none';
+        }
+
+        // 게시글 삭제
+        function deletePost() {
+            if (!deletePostId) return;
+
+            document.getElementById('loadingOverlay').style.display = 'flex';
+
+            fetch(`/delete/${deletePostId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                
+                if (data.message) {
+                    showNotification(data.message, 'success');
+                    // 해당 게시글 요소 제거
+                    const postElement = document.getElementById(`post-${deletePostId}`);
+                    if (postElement) {
+                        postElement.remove();
+                    }
+                    // 통계 갱신
+                    loadStats();
+                } else {
+                    showNotification(data.error || '삭제에 실패했습니다.', 'error');
+                }
+                closeConfirmDialog();
+            })
+            .catch(error => {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                showNotification('삭제 중 오류가 발생했습니다.', 'error');
+                console.error('삭제 실패:', error);
+                closeConfirmDialog();
+            });
+        }
+
+        // 내용 토글 (메인 페이지와 동일한 함수 사용)
+        function toggleContent(postId) {
+            const content = document.getElementById(`content-${postId}`);
+            const icon = document.getElementById(`toggle-icon-${postId}`);
+            
+            if (content.style.display === 'none' || content.style.display === '') {
+                content.style.display = 'block';
+                icon.textContent = '▲';
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▼';
+            }
+        }
+
+        // 알림 표시
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

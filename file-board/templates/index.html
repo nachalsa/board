@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파일 업로드 게시판</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>📁 파일 업로드 게시판</h1>
+            <p class="subtitle">파일을 업로드하거나 메시지를 남겨보세요</p>
+        </header>
+
+        <div class="upload-section">
+            <!-- 파일 업로드 영역 -->
+            <div class="upload-card">
+                <h2>📂 파일 업로드</h2>
+                <div class="file-upload-area" id="fileUploadArea">
+                    <div class="upload-content">
+                        <div class="upload-icon">📤</div>
+                        <p class="upload-text">파일을 여기에 드래그하거나 클릭하여 선택하세요</p>
+                        <p class="upload-hint">최대 500MB까지 업로드 가능</p>
+                        <input type="file" id="fileInput" multiple hidden>
+                        <button type="button" class="browse-btn" onclick="document.getElementById('fileInput').click()">파일 선택</button>
+                    </div>
+                </div>
+                
+                <div class="file-list" id="fileList"></div>
+                
+                <form id="fileUploadForm" class="upload-form">
+                    <div class="form-group">
+                        <label for="fileTitle">제목 (선택사항)</label>
+                        <input type="text" id="fileTitle" name="title" placeholder="파일에 대한 설명을 입력하세요">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="upload-btn" disabled>업로드</button>
+                        <button type="button" class="reset-btn" onclick="resetFileUpload()">초기화</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 메시지 업로드 영역 -->
+            <div class="upload-card">
+                <h2>💬 메시지 작성</h2>
+                <form id="messageUploadForm" class="upload-form">
+                    <div class="form-group">
+                        <label for="messageTitle">제목 *</label>
+                        <input type="text" id="messageTitle" name="title" placeholder="제목을 입력하세요" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="messageContent">내용 *</label>
+                        <textarea id="messageContent" name="content" rows="6" placeholder="내용을 입력하세요" required></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="upload-btn">메시지 업로드</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 게시글 목록 -->
+        <div class="posts-section">
+            <h2>📝 게시글 목록</h2>
+            
+            {{if .error}}
+                <div class="error-message">{{.error}}</div>
+            {{else if .posts}}
+                <div class="posts-container">
+                    {{range .posts}}
+                    <div class="post-item {{.PostType}}">
+                        <div class="post-header">
+                            <div class="post-info">
+                                {{if eq .PostType "file"}}
+                                    <span class="post-type-icon">📁</span>
+                                    <h3 class="post-title">{{if .Title}}{{.Title}}{{else}}{{.FileName}}{{end}}</h3>
+                                    <div class="post-meta">
+                                        <span class="file-name">{{.FileName}}</span>
+                                        <span class="file-size">({{printf "%.2f" (div (float64 .FileSize) 1048576)}} MB)</span>
+                                        <span class="post-date">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                                    </div>
+                                {{else}}
+                                    <span class="post-type-icon">💬</span>
+                                    <h3 class="post-title">{{.Title}}</h3>
+                                    <div class="post-meta">
+                                        <span class="post-date">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
+                                    </div>
+                                {{end}}
+                            </div>
+                            
+                            <div class="post-actions">
+                                {{if eq .PostType "file"}}
+                                    <a href="/download/{{.ID}}" class="download-btn" title="다운로드">⬇️</a>
+                                {{end}}
+                                <button class="toggle-btn" onclick="toggleContent({{.ID}})" title="내용 보기/숨기기">
+                                    <span id="toggle-icon-{{.ID}}">▼</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {{if .Content}}
+                        <div class="post-content" id="content-{{.ID}}">
+                            <div class="content-text">{{.Content}}</div>
+                        </div>
+                        {{end}}
+                    </div>
+                    {{end}}
+                </div>
+            {{else}}
+                <div class="no-posts">
+                    <p>아직 게시글이 없습니다.</p>
+                    <p>첫 번째 게시글을 작성해보세요! 📝</p>
+                </div>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- 로딩 오버레이 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p>업로드 중...</p>
+    </div>
+
+    <!-- 알림 메시지 -->
+    <div class="notification" id="notification"></div>
+
+    <footer class="footer">
+        <p>관리자 페이지: <a href="http://localhost:8081" target="_blank">http://localhost:8081</a></p>
+    </footer>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
