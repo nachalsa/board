@@ -21,6 +21,7 @@ type AdminPost struct {
 	FileName  string    `json:"file_name"`
 	FilePath  string    `json:"file_path"`
 	FileSize  int64     `json:"file_size"`
+	FileSizeMB	float64 `json:"file_size_mb"`
 	PostType  string    `json:"post_type"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -90,6 +91,7 @@ func adminIndexHandler(c *gin.Context) {
 		post.FileName = fileName.String
 		post.FilePath = filePath.String
 		post.FileSize = fileSize.Int64
+		post.FileSizeMB = float64(fileSize.Int64) / 1048576
 		
 		posts = append(posts, post)
 	}

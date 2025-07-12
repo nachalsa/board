@@ -152,7 +152,7 @@
                                     <h3 class="post-title">{{if .Title}}{{.Title}}{{else}}{{.FileName}}{{end}}</h3>
                                     <div class="post-meta">
                                         <span class="file-name">{{.FileName}}</span>
-                                        <span class="file-size">({{printf "%.2f" (div (float64 .FileSize) 1048576)}} MB)</span>
+                                        <span class="file-size">({{printf "%.2f" .FileSizeMB}} MB)</span>
                                         <span class="post-date">{{.CreatedAt.Format "2006-01-02 15:04"}}</span>
                                         <span class="post-id">ID: {{.ID}}</span>
                                     </div>
