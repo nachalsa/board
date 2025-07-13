@@ -94,7 +94,7 @@ func indexHandler(c *gin.Context) {
 	rows, err := db.Query(`
 		SELECT id, title, content, file_name, file_path, file_size, post_type, created_at 
 		FROM posts 
-		
+		WHERE deleted_at IS NULL
 		ORDER BY created_at DESC
 	`)
 	if err != nil {
