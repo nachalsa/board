@@ -94,6 +94,7 @@ func indexHandler(c *gin.Context) {
 	rows, err := db.Query(`
 		SELECT id, title, content, file_name, file_path, file_size, post_type, created_at 
 		FROM posts 
+		
 		ORDER BY created_at DESC
 	`)
 	if err != nil {
@@ -175,11 +176,13 @@ func uploadFileHandler(c *gin.Context) {
 		return
 	}
 
+	ipAddress := c.ClientIP()
+
 	// 데이터베이스에 저장
 	_, err = db.Exec(`
-		INSERT INTO posts (title, file_name, file_path, file_size, post_type) 
-		VALUES ($1, $2, $3, $4, $5)
-	`, title, fileName, filePath, header.Size, "file")
+		INSERT INTO posts (title, file_name, file_path, file_size, post_type, ip_address) 
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, title, fileName, filePath, header.Size, "file", ipAddress)
 	if err != nil {
 		log.Printf("데이터베이스 저장 실패: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "데이터베이스 저장 실패"})
@@ -204,11 +207,13 @@ func uploadMessageHandler(c *gin.Context) {
 		return
 	}
 
+	ipAddress := c.ClientIP()
+
 	// 데이터베이스에 저장
 	_, err := db.Exec(`
-		INSERT INTO posts (title, content, post_type) 
-		VALUES ($1, $2, $3)
-	`, title, content, "message")
+		INSERT INTO posts (title, content, post_type, ip_address) 
+		VALUES ($1, $2, $3, $4)
+	`, title, content, "message", ipAddress)
 	if err != nil {
 		log.Printf("메시지 저장 실패: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "메시지 저장 실패"})

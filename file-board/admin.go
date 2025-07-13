@@ -23,7 +23,9 @@ type AdminPost struct {
 	FileSize  int64     `json:"file_size"`
 	FileSizeMB	float64 `json:"file_size_mb"`
 	PostType  string    `json:"post_type"`
+	IPAddress	string	`json:"ip_address"`
 	CreatedAt time.Time `json:"created_at"`
+	DeletedAt sql.NullTime `json:"deleted_at"`
 }
 
 var adminDB *sql.DB
@@ -63,7 +65,7 @@ func initAdminDB() {
 func adminIndexHandler(c *gin.Context) {
 	// 게시글 목록 조회
 	rows, err := adminDB.Query(`
-		SELECT id, title, content, file_name, file_path, file_size, post_type, created_at 
+		SELECT id, title, content, file_name, file_path, file_size, post_type, ip_address, created_at, deleted_at 
 		FROM posts 
 		ORDER BY created_at DESC
 	`)
@@ -82,10 +84,10 @@ func adminIndexHandler(c *gin.Context) {
     }
 	for rows.Next() {
 		var post AdminPost
-		var title, content, fileName, filePath sql.NullString
+		var title, content, fileName, filePath, ipAddress sql.NullString
 		var fileSize sql.NullInt64
 
-		err := rows.Scan(&post.ID, &title, &content, &fileName, &filePath, &fileSize, &post.PostType, &post.CreatedAt)
+		err := rows.Scan(&post.ID, &title, &content, &fileName, &filePath, &fileSize, &post.PostType, &ipAddress, &post.CreatedAt, &post.DeletedAt)
 		if err != nil {
 			log.Printf("관리자 게시글 스캔 실패: %v", err)
 			continue
@@ -97,7 +99,9 @@ func adminIndexHandler(c *gin.Context) {
 		post.FilePath = filePath.String
 		post.FileSize = fileSize.Int64
 		post.FileSizeMB = float64(fileSize.Int64) / 1048576
+		post.IPAddress = ipAddress.String 
 		post.CreatedAt = post.CreatedAt.In(kst)
+
 		
 		posts = append(posts, post)
 	}
@@ -134,19 +138,65 @@ func deletePostHandler(c *gin.Context) {
 	}
 
 	// 데이터베이스에서 게시글 삭제
-	_, err = adminDB.Exec("DELETE FROM posts WHERE id = $1", id)
+	// _, err = adminDB.Exec("DELETE FROM posts WHERE id = $1", id)
+	// if err != nil {
+	// 	log.Printf("게시글 삭제 실패: %v", err)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "게시글 삭제 실패"})
+	// 	return
+	// }
+
+	// // 파일 타입인 경우 물리적 파일도 삭제
+	// if postType == "file" && filePath != "" {
+	// 	if err := os.Remove(filePath); err != nil {
+	// 		log.Printf("파일 삭제 실패: %v", err)
+	// 		// 파일 삭제 실패는 치명적이지 않으므로 계속 진행
+	// 	}
+	// }
+
+	tx, err := adminDB.Begin() // 트랜잭션 시작
 	if err != nil {
-		log.Printf("게시글 삭제 실패: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "게시글 삭제 실패"})
+		log.Printf("트랜잭션 시작 실패: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "작업 처리 중 오류 발생"})
 		return
 	}
 
-	// 파일 타입인 경우 물리적 파일도 삭제
+	// 데이터베이스에서 soft delete 처리
+	_, err = tx.Exec("UPDATE posts SET deleted_at = NOW() WHERE id = $1", id)
+	if err != nil {
+		tx.Rollback()
+		log.Printf("게시글 삭제(soft delete) 실패: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "게시글 삭제 실패"})
+		return
+	}
+	
+	// 파일 타입인 경우 물리적 파일을 uploads_deleted 디렉토리로 이동
 	if postType == "file" && filePath != "" {
-		if err := os.Remove(filePath); err != nil {
-			log.Printf("파일 삭제 실패: %v", err)
-			// 파일 삭제 실패는 치명적이지 않으므로 계속 진행
+		deletedDir := "./uploads_deleted"
+		// uploads_deleted 디렉토리 생성
+		if err := os.MkdirAll(deletedDir, 0755); err != nil {
+			tx.Rollback()
+			log.Printf("삭제된 파일 보관 디렉토리 생성 실패: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "파일 처리 중 오류 발생"})
+			return
 		}
+		
+		newPath := filepath.Join(deletedDir, fileName)
+		// 파일을 새 경로로 이동
+		if err := os.Rename(filePath, newPath); err != nil {
+			// 파일이 이미 없는 경우는 무시할 수 있지만, 다른 오류는 롤백
+			if !os.IsNotExist(err) {
+				tx.Rollback()
+				log.Printf("파일 이동 실패: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "파일 이동 실패"})
+				return
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil { // 트랜잭션 커밋
+		log.Printf("트랜잭션 커밋 실패: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "작업 완료 중 오류 발생"})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "게시글이 삭제되었습니다."})
