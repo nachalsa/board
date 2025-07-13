@@ -13,8 +13,7 @@ services:
       - DB_NAME=filedb
       - DB_PORT=5432
     volumes:
-      - ./uploads:/app/uploads
-      - ./uploads_deleted:/app/uploads_deleted
+      - ./files:/app/files
       - ./templates:/app/templates
       - ./static:/app/static
     restart: unless-stopped

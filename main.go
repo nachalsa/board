@@ -16,6 +16,11 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const (
+    UploadsDir = "files/uploads"
+	UploadsDeletedDir = "files/uploads_deleted"
+)
+
 // 게시글 구조체
 type Post struct {
 	ID        int       `json:"id"`
@@ -151,15 +156,14 @@ func uploadFileHandler(c *gin.Context) {
 	}
 
 	// 업로드 디렉토리 생성
-	uploadDir := "./uploads"
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+	if err := os.MkdirAll(UploadsDir, 0755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "업로드 디렉토리 생성 실패"})
 		return
 	}
 
 	// 중복 파일명 처리
-	fileName := getUniqueFileName(uploadDir, header.Filename)
-	filePath := filepath.Join(uploadDir, fileName)
+	fileName := getUniqueFileName(UploadsDir, header.Filename)
+	filePath := filepath.Join(UploadsDir, fileName)
 
 	// 파일 저장
 	out, err := os.Create(filePath)

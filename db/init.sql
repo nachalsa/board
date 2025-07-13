@@ -7,8 +7,10 @@ CREATE TABLE IF NOT EXISTS posts (
     file_path VARCHAR(500),
     file_size BIGINT DEFAULT 0,
     post_type VARCHAR(20) NOT NULL CHECK (post_type IN ('file', 'message')),
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    ip_address VARCHAR(45),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ 
 );
 
 -- 업데이트 시간 자동 갱신 함수

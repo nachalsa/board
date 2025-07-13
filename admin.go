@@ -163,15 +163,14 @@ func deletePostHandler(c *gin.Context) {
 		log.Printf("원본 파일명 (DB): %s", fileName)
 		log.Printf("원본 파일 경로 (DB): %s", filePath)
 
-		deletedDir := "./uploads_deleted"
-		if err := os.MkdirAll(deletedDir, 0755); err != nil {
+		if err := os.MkdirAll(UploadsDeletedDir, 0755); err != nil {
 			log.Printf("삭제된 파일 보관 디렉토리 생성 실패: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "파일 처리 중 오류 발생"})
 			return
 		}
 
-		uniqueDeletedFileName := getUniqueFileName(deletedDir, fileName)
-		newPath := filepath.Join(deletedDir, uniqueDeletedFileName)
+		uniqueDeletedFileName := getUniqueFileName(UploadsDeletedDir, fileName)
+		newPath := filepath.Join(UploadsDeletedDir, uniqueDeletedFileName)
 
 		log.Printf("생성된 고유 파일명: %s", uniqueDeletedFileName)
 		log.Printf("새 파일 경로: %s", newPath)
