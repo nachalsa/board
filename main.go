@@ -18,7 +18,7 @@ import (
 
 const (
     UploadsDir = "files/uploads"
-	UploadsDeletedDir = "files/uploads_deleted"
+	UploadsDeletedDir = "files/deleted"
 )
 
 // 게시글 구조체
