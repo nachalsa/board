@@ -64,7 +64,7 @@ func initDB() {
 
 // 파일명 중복 처리
 func getUniqueFileName(directory, originalName string) string {
-	filePath := filepath.Join(uploadDir, originalName)
+	filePath := filepath.Join(directory, originalName)
 
 	// 파일이 존재하지 않으면 원본 이름 반환
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -79,7 +79,7 @@ func getUniqueFileName(directory, originalName string) string {
 	counter := 1
 	for {
 		newName := fmt.Sprintf("%s(%d)%s", name, counter, ext)
-		newPath := filepath.Join(uploadDir, newName)
+		newPath := filepath.Join(directory, newName)
 		if _, err := os.Stat(newPath); os.IsNotExist(err) {
 			return newName
 		}
