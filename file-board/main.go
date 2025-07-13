@@ -63,8 +63,7 @@ func initDB() {
 }
 
 // 파일명 중복 처리
-func getUniqueFileName(originalName string) string {
-	uploadDir := "./uploads"
+func getUniqueFileName(directory, originalName string) string {
 	filePath := filepath.Join(uploadDir, originalName)
 
 	// 파일이 존재하지 않으면 원본 이름 반환
@@ -159,7 +158,7 @@ func uploadFileHandler(c *gin.Context) {
 	}
 
 	// 중복 파일명 처리
-	fileName := getUniqueFileName(header.Filename)
+	fileName := getUniqueFileName(uploadDir, header.Filename)
 	filePath := filepath.Join(uploadDir, fileName)
 
 	// 파일 저장

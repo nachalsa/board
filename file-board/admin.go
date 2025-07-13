@@ -181,7 +181,10 @@ func deletePostHandler(c *gin.Context) {
 			return
 		}
 		
-		newPath := filepath.Join(deletedDir, fileName)
+		uniqueDeletedFileName := getUniqueFileName(deletedDir, fileName)
+
+		
+		newPath := filepath.Join(deletedDir, uniqueDeletedFileName)
 		// 파일을 새 경로로 이동
 		if err := os.Rename(filePath, newPath); err != nil {
 			// 파일이 이미 없는 경우는 무시할 수 있지만, 다른 오류는 롤백
