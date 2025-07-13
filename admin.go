@@ -113,6 +113,8 @@ func adminIndexHandler(c *gin.Context) {
 }
 
 // 게시글 삭제 핸들러
+// admin.go
+
 func deletePostHandler(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -120,8 +122,8 @@ func deletePostHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "잘못된 게시글 ID"})
 		return
 	}
-	
-	tx, err := adminDB.Begin() // 트랜잭션 시작
+
+	tx, err := adminDB.Begin()
 	if err != nil {
 		log.Printf("트랜잭션 시작 실패: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "작업 처리 중 오류 발생"})
@@ -129,16 +131,16 @@ func deletePostHandler(c *gin.Context) {
 	}
 	defer tx.Rollback()
 
-	// 게시글 정보 조회
 	var fileName, filePath, postType string
 	err = tx.QueryRow(`
-		SELECT COALESCE(file_name, ''), COALESCE(file_path, ''), post_type 
-		FROM posts 
-		WHERE id = $1
-	`, id).Scan(&fileName, &filePath, &postType)
+		SELECT COALESCE(file_name, ''), COALESCE(file_path, ''), post_type
+		FROM posts
+		WHERE id = $1 AND deleted_at IS NULL
+	`, id).Scan(&fileName, &filePath, &postType) // 삭제되지 않은 게시물만 대상으로 변경
+
 	if err != nil {
 		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, gin.H{"error": "게시글을 찾을 수 없습니다."})
+			c.JSON(http.StatusNotFound, gin.H{"error": "게시글을 찾을 수 없거나 이미 삭제되었습니다."})
 			return
 		}
 		log.Printf("게시글 정보 조회 실패: %v", err)
@@ -146,39 +148,62 @@ func deletePostHandler(c *gin.Context) {
 		return
 	}
 
-	// 데이터베이스에서 soft delete 처리
+	// 1. 데이터베이스에서 soft delete 처리 (deleted_at 설정)
 	_, err = tx.Exec("UPDATE posts SET deleted_at = NOW() WHERE id = $1", id)
 	if err != nil {
 		log.Printf("게시글 삭제(soft delete) 실패: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "게시글 삭제 실패"})
 		return
 	}
-	
-	// 파일 타입인 경우 물리적 파일을 uploads_deleted 디렉토리로 이동
+
+	// 파일 타입인 경우에만 파일 이동 및 DB 추가 업데이트
 	if postType == "file" && filePath != "" {
+		// --- 디버깅 로그 시작 ---
+		log.Printf("----- 파일 삭제 처리 시작 (Post ID: %d) -----", id)
+		log.Printf("원본 파일명 (DB): %s", fileName)
+		log.Printf("원본 파일 경로 (DB): %s", filePath)
+
 		deletedDir := "./uploads_deleted"
-		// uploads_deleted 디렉토리 생성
 		if err := os.MkdirAll(deletedDir, 0755); err != nil {
 			log.Printf("삭제된 파일 보관 디렉토리 생성 실패: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "파일 처리 중 오류 발생"})
 			return
 		}
-		
+
 		uniqueDeletedFileName := getUniqueFileName(deletedDir, fileName)
-		
 		newPath := filepath.Join(deletedDir, uniqueDeletedFileName)
-		// 파일을 새 경로로 이동
+
+		log.Printf("생성된 고유 파일명: %s", uniqueDeletedFileName)
+		log.Printf("새 파일 경로: %s", newPath)
+		log.Printf("실행할 명령: os.Rename(\"%s\", \"%s\")", filePath, newPath)
+		// --- 디버깅 로그 끝 ---
+
+		// 2. 파일을 새 경로로 이동
 		if err := os.Rename(filePath, newPath); err != nil {
-			// 파일이 이미 없는 경우는 무시할 수 있지만, 다른 오류는 롤백
+			// 파일이 이미 없는 경우는 무시
 			if !os.IsNotExist(err) {
-				log.Printf("파일 이동 실패: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "파일 이동 실패"})
+				log.Printf("파일 이동 실패: %v", err) // 실제 에러 로그 출력
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "파일 이동에 실패했습니다."})
 				return
 			}
+			log.Printf("파일이 원본 경로에 존재하지 않아 이동을 건너뜁니다: %s", filePath)
 		}
+
+		// 3. (★중요★) 파일 이동 후, DB의 경로와 파일명도 업데이트하여 데이터 일관성 유지
+		_, err = tx.Exec(`
+			UPDATE posts
+			SET file_path = $1, file_name = $2
+			WHERE id = $3
+		`, newPath, uniqueDeletedFileName, id)
+		if err != nil {
+			log.Printf("삭제 후 파일 경로 업데이트 실패: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "파일 정보 업데이트 실패"})
+			return
+		}
+		log.Printf("DB 파일 정보 업데이트 완료: path=%s, name=%s", newPath, uniqueDeletedFileName)
 	}
 
-	if err := tx.Commit(); err != nil { // 트랜잭션 커밋
+	if err := tx.Commit(); err != nil {
 		log.Printf("트랜잭션 커밋 실패: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "작업 완료 중 오류 발생"})
 		return
