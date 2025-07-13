@@ -120,10 +120,18 @@ func deletePostHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "잘못된 게시글 ID"})
 		return
 	}
+	
+	tx, err := adminDB.Begin() // 트랜잭션 시작
+	if err != nil {
+		log.Printf("트랜잭션 시작 실패: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "작업 처리 중 오류 발생"})
+		return
+	}
+	defer tx.Rollback()
 
 	// 게시글 정보 조회
 	var fileName, filePath, postType string
-	err = adminDB.QueryRow(`
+	err = tx.QueryRow(`
 		SELECT COALESCE(file_name, ''), COALESCE(file_path, ''), post_type 
 		FROM posts 
 		WHERE id = $1
@@ -138,33 +146,9 @@ func deletePostHandler(c *gin.Context) {
 		return
 	}
 
-	// 데이터베이스에서 게시글 삭제
-	// _, err = adminDB.Exec("DELETE FROM posts WHERE id = $1", id)
-	// if err != nil {
-	// 	log.Printf("게시글 삭제 실패: %v", err)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "게시글 삭제 실패"})
-	// 	return
-	// }
-
-	// // 파일 타입인 경우 물리적 파일도 삭제
-	// if postType == "file" && filePath != "" {
-	// 	if err := os.Remove(filePath); err != nil {
-	// 		log.Printf("파일 삭제 실패: %v", err)
-	// 		// 파일 삭제 실패는 치명적이지 않으므로 계속 진행
-	// 	}
-	// }
-
-	tx, err := adminDB.Begin() // 트랜잭션 시작
-	if err != nil {
-		log.Printf("트랜잭션 시작 실패: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "작업 처리 중 오류 발생"})
-		return
-	}
-
 	// 데이터베이스에서 soft delete 처리
 	_, err = tx.Exec("UPDATE posts SET deleted_at = NOW() WHERE id = $1", id)
 	if err != nil {
-		tx.Rollback()
 		log.Printf("게시글 삭제(soft delete) 실패: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "게시글 삭제 실패"})
 		return
@@ -175,21 +159,18 @@ func deletePostHandler(c *gin.Context) {
 		deletedDir := "./uploads_deleted"
 		// uploads_deleted 디렉토리 생성
 		if err := os.MkdirAll(deletedDir, 0755); err != nil {
-			tx.Rollback()
 			log.Printf("삭제된 파일 보관 디렉토리 생성 실패: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "파일 처리 중 오류 발생"})
 			return
 		}
 		
 		uniqueDeletedFileName := getUniqueFileName(deletedDir, fileName)
-
 		
 		newPath := filepath.Join(deletedDir, uniqueDeletedFileName)
 		// 파일을 새 경로로 이동
 		if err := os.Rename(filePath, newPath); err != nil {
 			// 파일이 이미 없는 경우는 무시할 수 있지만, 다른 오류는 롤백
 			if !os.IsNotExist(err) {
-				tx.Rollback()
 				log.Printf("파일 이동 실패: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "파일 이동 실패"})
 				return
