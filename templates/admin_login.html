@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <title>🔐 관리자 로그인</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* === 원하셨던 두 번째 코드의 세련된 CSS를 그대로 적용 === */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .login-container {
+            background: rgba(255,255,255,0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            width: 100%;
+            max-width: 400px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .login-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        .login-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .error-msg {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .info-box {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 0.9em;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="header">
+            <h1>🔐 관리자 로그인</h1>
+            <p>게시판 관리를 위해 로그인해주세요.</p>
+        </div>
+        
+        <!-- id를 error-message에서 errorMsg로 변경하여 JS와 일관성 유지 -->
+        <div id="errorMsg" class="error-msg"></div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">사용자명</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">비밀번호</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <button type="submit" class="login-btn" id="loginButton">로그인</button>
+        </form>
+        
+        <div class="info-box">
+            <strong>기본 계정 정보</strong><br>
+            사용자명: admin<br>
+            비밀번호: admin123
+        </div>
+    </div>
+
+    <script>
+        // === 스크립트 수정: 엔터 키 처리 개선 및 변수명 일관성 확보 ===
+        
+        const loginForm = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const errorMsgDiv = document.getElementById('errorMsg'); // 변수명 변경 (HTML id와 일치)
+        const loginButton = document.getElementById('loginButton');
+
+        async function handleLogin(event) {
+            // event가 있으면 기본 동작(새로고침)을 막음
+            if (event) {
+                event.preventDefault();
+            }
+
+            // UI 상태 변경
+            errorMsgDiv.style.display = 'none';
+            loginButton.disabled = true;
+            loginButton.textContent = '로그인 중...';
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: usernameInput.value,
+                        password: passwordInput.value
+                    })
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    const errorData = await response.json();
+                    errorMsgDiv.textContent = errorData.error || '아이디 또는 비밀번호가 올바르지 않습니다.';
+                    errorMsgDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorMsgDiv.textContent = '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+                errorMsgDiv.style.display = 'block';
+            } finally {
+                // UI 상태 복원
+                loginButton.disabled = false;
+                loginButton.textContent = '로그인';
+            }
+        }
+
+        // 폼 제출 이벤트에 로그인 핸들러 연결
+        loginForm.addEventListener('submit', handleLogin);
+
+        // 엔터 키 처리 (가장 확실한 방법)
+        // password 필드에서 엔터 키를 누르면, form의 submit 이벤트 대신 handleLogin 함수를 직접 호출.
+        passwordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // 엔터 키의 기본 동작(폼 제출)을 막음
+                handleLogin();      // 로그인 로직을 직접 실행
+            }
+        });
+    </script>
+</body>
+</html>

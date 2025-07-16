@@ -13,6 +13,8 @@ services:
       - DB_PASSWORD=filepass
       - DB_NAME=filedb
       - DB_PORT=5432
+      # - ADMIN_USER=""
+      # - ADMIN_PASS=""
     volumes:
       - ./files:/app/files
       - ./templates:/app/templates

@@ -275,8 +275,15 @@
 
         // 통계 로드
         function loadStats() {
-            fetch('/stats')
-                .then(response => response.json())
+            fetch('/api/stats')
+                .then(response => {
+                    if (!response.ok) {
+                        // 401 Unauthorized 같은 에러가 발생하면 로그인 페이지로 보냅니다.
+                        if (response.status === 401) window.location.href = '/login';
+                        throw new Error('인증 실패 또는 서버 오류');
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     document.getElementById('totalPosts').textContent = data.total_posts || 0;
                     document.getElementById('filePosts').textContent = data.file_posts || 0;
@@ -284,6 +291,9 @@
                 })
                 .catch(error => {
                     console.error('통계 로드 실패:', error);
+                    document.getElementById('totalPosts').textContent = 'X';
+                    document.getElementById('filePosts').textContent = 'X';
+                    document.getElementById('messagePosts').textContent = 'X';
                 });
         }
 
@@ -307,33 +317,36 @@
 
             document.getElementById('loadingOverlay').style.display = 'flex';
 
-            fetch(`/delete/${deletePostId}`, {
+            fetch(`/api/delete/${deletePostId}`, {
                 method: 'DELETE'
             })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('loadingOverlay').style.display = 'none';
-                
-                if (data.message) {
-                    showNotification(data.message, 'success');
-                    // 해당 게시글 요소 제거
-                    const postElement = document.getElementById(`post-${deletePostId}`);
-                    if (postElement) {
-                        postElement.remove();
+                .then(response => {
+                    if (response.status === 401) window.location.href = '/login';
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    
+                    if (data.message) {
+                        showNotification(data.message, 'success');
+                        // 해당 게시글 요소 제거
+                        const postElement = document.getElementById(`post-${deletePostId}`);
+                        if (postElement) {
+                            postElement.remove();
+                        }
+                        // 통계 갱신
+                        loadStats();
+                    } else {
+                        showNotification(data.error || '삭제에 실패했습니다.', 'error');
                     }
-                    // 통계 갱신
-                    loadStats();
-                } else {
-                    showNotification(data.error || '삭제에 실패했습니다.', 'error');
-                }
-                closeConfirmDialog();
-            })
-            .catch(error => {
-                document.getElementById('loadingOverlay').style.display = 'none';
-                showNotification('삭제 중 오류가 발생했습니다.', 'error');
-                console.error('삭제 실패:', error);
-                closeConfirmDialog();
-            });
+                    closeConfirmDialog();
+                })
+                .catch(error => {
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    showNotification('삭제 중 오류가 발생했습니다.', 'error');
+                    console.error('삭제 실패:', error);
+                    closeConfirmDialog();
+                });
         }
 
         // 내용 토글 (메인 페이지와 동일한 함수 사용)
