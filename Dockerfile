@@ -7,10 +7,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # 소스 코드 복사
-COPY *.go ./
+COPY . .
 
 # 애플리케이션 빌드
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/server
 
 # 실행 스테이지
 FROM alpine:latest
@@ -31,8 +31,7 @@ WORKDIR /app
 COPY --from=builder /app/main .
 
 # 템플릿과 정적 파일 복사
-COPY templates/ ./templates/
-COPY static/ ./static/
+COPY web/ ./web/
 
 # 업로드 디렉토리 생성 및 권한 설정
 RUN mkdir -p files/uploads files/deleted && \
