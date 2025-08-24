@@ -1,5 +1,5 @@
 # 빌드 스테이지
-FROM golang:1.21-alpine AS builder
+FROM golang:1.23-alpine AS builder
 WORKDIR /app
 
 # Go 모듈 파일 복사
@@ -18,8 +18,13 @@ FROM alpine:latest
 # 필요한 패키지 설치
 RUN apk --no-cache add ca-certificates tzdata
 
-# 사용자 생성
-RUN adduser -D -g 'appuser' appuser
+# 빌드 인수로 UID/GID 받기
+ARG UID=1000
+ARG GID=1000
+
+# 사용자 생성 (빌드 인수 사용)
+RUN addgroup -g ${GID} appuser && \
+    adduser -D -u ${UID} -G appuser appuser
 
 # 타임존 설정
 ENV TZ=Asia/Seoul
@@ -33,12 +38,12 @@ COPY --from=builder /app/main .
 # 템플릿과 정적 파일 복사
 COPY web/ ./web/
 
-# 업로드 디렉토리 생성 및 권한 설정
-RUN mkdir -p files/uploads files/deleted && \
-    chown -R appuser:appuser /app
+# 업로드 디렉토리 생성 및 권한 설정 (루트 권한으로)
+RUN mkdir -p files && \
+    chown -R ${UID}:${GID} /app
 
 # 사용자 전환 (마지막에)
-USER appuser
+USER ${UID}:${GID}
 
 # 포트 노출
 EXPOSE 80 8081

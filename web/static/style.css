@@ -494,6 +494,10 @@ body {
     background: #ff4d4f;
 }
 
+.notification.warning {
+    background: #faad14;
+}
+
 .notification.info {
     background: #1890ff;
 }

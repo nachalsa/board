@@ -31,6 +31,7 @@ func (h *Handler) IndexHandler(c *gin.Context) {
 		c.HTML(http.StatusInternalServerError, "index.html", gin.H{
 			"error": "게시글을 불러올 수 없습니다.",
 			"maxFileSize": h.cfg.GetMaxFileSizeText(),
+			"maxFileSizeMB": h.cfg.GetMaxFileSizeMB(),
 		})
 		return
 	}
@@ -38,6 +39,7 @@ func (h *Handler) IndexHandler(c *gin.Context) {
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"posts": posts,
 		"maxFileSize": h.cfg.GetMaxFileSizeText(),
+		"maxFileSizeMB": h.cfg.GetMaxFileSizeMB(),
 	})
 }
 
@@ -110,7 +112,7 @@ func (h *Handler) DownloadFileHandler(c *gin.Context) {
 		return
 	}
 
-	fileName, filePath, err := h.postService.GetPostFile(id)
+	fileName, filePath, err := h.postService.GetFileInfo(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "파일을 찾을 수 없습니다."})
 		return

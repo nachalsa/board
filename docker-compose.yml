@@ -1,26 +1,29 @@
 services:
   app:
-    build: .
-    user: "${UID}:${GID}"
+    build: 
+      context: .
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    user: "${UID:-1000}:${GID:-1000}"
+    env_file:
+      - .env
     ports:
-      - "80:8080"
+      - "80:80"
       - "8081:8081"
     depends_on:
       - postgres
     environment:
-      - DB_HOST=postgres
-      - DB_USER=fileuser
-      - DB_PASSWORD=filepass
-      - DB_NAME=filedb
-      - DB_PORT=5432
-      - SERVER_PORT=8080
-      - ADMIN_PORT=8081
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_USER=${DB_USER:-fileuser}
+      - DB_PASSWORD=${DB_PASSWORD:-filepass}
+      - DB_NAME=${DB_NAME:-filedb}
+      - DB_PORT=${DB_PORT:-5432}
+      - SERVER_PORT=${SERVER_PORT:-80}
+      - ADMIN_PORT=${ADMIN_PORT:-8081}
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-500}
-      - UPLOADS_DIR=${UPLOADS_DIR:-files/uploads}
-      - UPLOADS_DELETED_DIR=${UPLOADS_DELETED_DIR:-files/deleted}
     volumes:
-      - ./files:/app/files
-      - ./web:/app/web
+      - uploads_data:/app/files
     restart: unless-stopped
     networks:
       - file-board-network
@@ -28,9 +31,9 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_USER=fileuser
-      - POSTGRES_PASSWORD=filepass
-      - POSTGRES_DB=filedb
+      - POSTGRES_USER=${DB_USER:-fileuser}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-filepass}
+      - POSTGRES_DB=${DB_NAME:-filedb}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -42,6 +45,7 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
 
 networks:
   file-board-network:

@@ -1,6 +1,16 @@
 // 전역 변수
 let selectedFiles = [];
 let uploadInProgress = false;
+let isReloading = false; // 페이지 새로고침 플래그 추가
+
+// 설정값 가져오기
+function getMaxFileSize() {
+    return window.APP_CONFIG ? window.APP_CONFIG.maxFileSizeMB * 1024 * 1024 : 500 * 1024 * 1024;
+}
+
+function getMaxFileSizeText() {
+    return window.APP_CONFIG ? window.APP_CONFIG.maxFileSizeText : '500MB';
+}
 
 // DOM이 로드되면 초기화
 document.addEventListener('DOMContentLoaded', function() {
@@ -63,10 +73,21 @@ function initializeDragAndDrop() {
 function initializeFileInput() {
     const fileInput = document.getElementById('fileInput');
     
-    fileInput.addEventListener('change', function(e) {
-        const files = Array.from(e.target.files);
+    // 기존 이벤트 리스너 제거 (있다면)
+    fileInput.removeEventListener('change', handleFileInputChange);
+    
+    // 새 이벤트 리스너 추가
+    fileInput.addEventListener('change', handleFileInputChange);
+}
+
+// 파일 입력 변경 핸들러 (분리하여 참조 가능하게 함)
+function handleFileInputChange(e) {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
         handleFileSelection(files);
-    });
+        // 파일 선택 후 input을 초기화하여 같은 파일을 다시 선택할 수 있게 함
+        e.target.value = '';
+    }
 }
 
 // 파일 선택 처리
@@ -76,23 +97,37 @@ function handleFileSelection(files) {
         return;
     }
     
-    // 파일 크기 검증 (500MB = 500 * 1024 * 1024)
-    const maxSize = 500 * 1024 * 1024;
+    // 파일 크기 검증 (동적으로 설정값 사용)
+    const maxSize = getMaxFileSize();
+    const maxSizeText = getMaxFileSizeText();
     const validFiles = [];
     const invalidFiles = [];
+    const duplicateFiles = [];
     
     files.forEach(file => {
-        if (file.size > maxSize) {
+        // 중복 파일 체크 (이름과 크기로 판단)
+        const isDuplicate = selectedFiles.some(existingFile => 
+            existingFile.name === file.name && existingFile.size === file.size
+        );
+        
+        if (isDuplicate) {
+            duplicateFiles.push(file);
+        } else if (file.size > maxSize) {
             invalidFiles.push(file);
         } else {
             validFiles.push(file);
         }
     });
     
-    // 크기 초과 파일 알림
+    // 알림 메시지
     if (invalidFiles.length > 0) {
         const fileNames = invalidFiles.map(f => f.name).join(', ');
-        showNotification(`다음 파일들이 500MB를 초과합니다: ${fileNames}`, 'error');
+        showNotification(`다음 파일들이 ${maxSizeText}를 초과합니다: ${fileNames}`, 'error');
+    }
+    
+    if (duplicateFiles.length > 0) {
+        const fileNames = duplicateFiles.map(f => f.name).join(', ');
+        showNotification(`다음 파일들은 이미 선택되었습니다: ${fileNames}`, 'warning');
     }
     
     // 유효한 파일들 추가
@@ -100,6 +135,7 @@ function handleFileSelection(files) {
         selectedFiles = [...selectedFiles, ...validFiles];
         updateFileList();
         updateUploadButton();
+        showNotification(`${validFiles.length}개 파일이 선택되었습니다.`, 'success');
     }
 }
 
@@ -150,7 +186,14 @@ function updateUploadButton() {
 // 파일 업로드 초기화
 function resetFileUpload() {
     selectedFiles = [];
-    document.getElementById('fileInput').value = '';
+    const fileInput = document.getElementById('fileInput');
+    fileInput.value = '';
+    // 파일 입력을 완전히 초기화하기 위해 복제 후 교체
+    const newFileInput = fileInput.cloneNode(true);
+    fileInput.parentNode.replaceChild(newFileInput, fileInput);
+    // 새로운 입력에 이벤트 리스너 다시 연결
+    initializeFileInput();
+    
     document.getElementById('fileTitle').value = '';
     updateFileList();
     updateUploadButton();
@@ -203,18 +246,21 @@ async function handleFileUpload(e) {
         
         // 결과 알림
         if (successCount > 0 && errorCount === 0) {
-            showNotification(`${successCount}개 파일이 성공적으로 업로드되었습니다.`, 'success');
+            showNotification(`${successCount}개 파일이 업로드되었습니다.`, 'success');
             resetFileUpload();
-            setTimeout(() => location.reload(), 1500);
+            isReloading = true; // 새로고침 플래그 설정
+            location.reload();
         } else if (successCount > 0 && errorCount > 0) {
             showNotification(`${successCount}개 성공, ${errorCount}개 실패`, 'info');
+            resetFileUpload();
         } else {
-            showNotification('모든 파일 업로드에 실패했습니다.', 'error');
+            showNotification('파일 업로드에 실패했습니다.', 'error');
         }
         
     } catch (error) {
         console.error('업로드 중 오류:', error);
         showNotification('업로드 중 오류가 발생했습니다.', 'error');
+        resetFileUpload(); // 오류 발생시에도 파일 입력 초기화
     } finally {
         uploadInProgress = false;
         showLoadingOverlay(false);
@@ -264,10 +310,7 @@ function handleMessageUpload(e) {
         return;
     }
     
-    if (!content) {
-        showNotification('내용을 입력해주세요.', 'error');
-        return;
-    }
+    // 내용은 선택사항이므로 빈 값도 허용
     
     uploadInProgress = true;
     showLoadingOverlay(true);
@@ -283,9 +326,10 @@ function handleMessageUpload(e) {
     .then(response => response.json())
     .then(data => {
         if (data.message) {
-            showNotification('메시지가 성공적으로 업로드되었습니다.', 'success');
+            showNotification('메시지가 업로드되었습니다.', 'success');
             document.getElementById('messageUploadForm').reset();
-            setTimeout(() => location.reload(), 1500);
+            isReloading = true; // 새로고침 플래그 설정
+            location.reload();
         } else {
             showNotification(data.error || '메시지 업로드에 실패했습니다.', 'error');
         }
@@ -313,22 +357,12 @@ function toggleContent(postId) {
     const content = document.getElementById(`content-${postId}`);
     const icon = document.getElementById(`toggle-icon-${postId}`);
     
-    if (!content) return;
+    if (!content || !icon) return;
     
     if (content.style.display === 'none' || content.style.display === '') {
-        // 내용 표시
         content.style.display = 'block';
         icon.textContent = '▲';
-        
-        // 스크롤 애니메이션
-        setTimeout(() => {
-            content.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'nearest' 
-            });
-        }, 100);
     } else {
-        // 내용 숨기기
         content.style.display = 'none';
         icon.textContent = '▼';
     }
@@ -358,128 +392,44 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
-// 파일 다운로드 처리 (분석용)
-function trackDownload(postId, fileName) {
-    console.log(`파일 다운로드: ID ${postId}, 파일명: ${fileName}`);
-    // 여기에 다운로드 통계 등을 추가할 수 있습니다.
-}
-
-// 에러 핸들링
-window.addEventListener('error', function(e) {
-    console.error('JavaScript 에러:', e.error);
-    showNotification('페이지에 오류가 발생했습니다.', 'error');
-});
-
-// 네트워크 에러 핸들링
-window.addEventListener('unhandledrejection', function(e) {
-    console.error('Promise 에러:', e.reason);
-    showNotification('네트워크 오류가 발생했습니다.', 'error');
-});
-
 // 페이지 언로드시 업로드 중단 경고
 window.addEventListener('beforeunload', function(e) {
-    if (uploadInProgress) {
+    // 의도적인 새로고침이 아니고 업로드가 진행 중일 때만 경고
+    if (uploadInProgress && !isReloading) {
         e.preventDefault();
         e.returnValue = '업로드가 진행 중입니다. 페이지를 나가시겠습니까?';
         return e.returnValue;
     }
 });
 
-// 유틸리티 함수들
-const utils = {
-    // 파일 확장자 검사
-    isValidFileType: function(fileName, allowedTypes) {
-        const extension = fileName.split('.').pop().toLowerCase();
-        return allowedTypes.includes(extension);
-    },
-    
-    // 텍스트 길이 제한
-    truncateText: function(text, maxLength) {
-        if (text.length <= maxLength) return text;
-        return text.substring(0, maxLength) + '...';
-    },
-    
-    // 시간 포맷팅
-    formatDate: function(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('ko-KR', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    },
-    
-    // 디바운스 함수
-    debounce: function(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-};
-
-// 개발 환경에서 디버깅 정보
-if (window.location.hostname === 'localhost') {
-    console.log('파일 업로드 게시판 - 개발 모드');
-    console.log('사용 가능한 함수:', {
-        toggleContent: 'toggleContent(postId)',
-        resetFileUpload: 'resetFileUpload()',
-        showNotification: 'showNotification(message, type)',
-        utils: 'utils 객체의 유틸리티 함수들'
-    });
-}
-
-
-// static/script.js 파일의 끝 부분에 추가
-
-// 시간 'n분 전' 형태로 바꿔주는 함수
+// 시간 'n분 전' 형태로 표시
 function timeAgo(dateString) {
     const now = new Date();
     const past = new Date(dateString);
     const seconds = Math.floor((now - past) / 1000);
 
-    let interval = seconds / 31536000; // 년
-    if (interval > 1) {
-        return Math.floor(interval) + "년 전";
-    }
-    interval = seconds / 2592000; // 개월
-    if (interval > 1) {
-        return Math.floor(interval) + "개월 전";
-    }
-    interval = seconds / 86400; // 일
-    if (interval > 1) {
-        return Math.floor(interval) + "일 전";
-    }
-    interval = seconds / 3600; // 시간
-    if (interval > 1) {
-        return Math.floor(interval) + "시간 전";
-    }
-    interval = seconds / 60; // 분
-    if (interval > 1) {
-        return Math.floor(interval) + "분 전";
+    const intervals = [
+        { label: '년', seconds: 31536000 },
+        { label: '개월', seconds: 2592000 },
+        { label: '일', seconds: 86400 },
+        { label: '시간', seconds: 3600 },
+        { label: '분', seconds: 60 }
+    ];
+
+    for (let interval of intervals) {
+        const count = Math.floor(seconds / interval.seconds);
+        if (count > 0) return count + interval.label + ' 전';
     }
     
-    if (seconds < 10) return "방금 전";
-    return Math.floor(seconds) + "초 전";
+    return seconds < 10 ? '방금 전' : Math.floor(seconds) + '초 전';
 }
 
-// 페이지 로드 시 모든 날짜를 업데이트하는 함수
+// 모든 날짜 업데이트
 function updateAllDates() {
-    const dateElements = document.querySelectorAll('.post-date');
-    dateElements.forEach(el => {
+    document.querySelectorAll('.post-date[data-timestamp]').forEach(el => {
         const timestamp = el.dataset.timestamp;
-        if (timestamp) {
-            el.textContent = timeAgo(timestamp);
-            // 마우스를 올리면 원래 시간을 보여주는 title 속성 추가 (사용자 경험 향상)
-            el.title = new Date(timestamp).toLocaleString('ko-KR');
-        }
+        el.textContent = timeAgo(timestamp);
+        el.title = new Date(timestamp).toLocaleString('ko-KR');
     });
 }
 

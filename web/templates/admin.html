@@ -12,6 +12,9 @@
         <div class="admin-header">
             <h1>🔧 관리자 페이지</h1>
             <p>게시글 관리 및 통계 조회</p>
+            <div style="margin-top: 1rem;">
+                <a href="/logout" class="logout-btn" onclick="return confirm('로그아웃 하시겠습니까?')">🚪 로그아웃</a>
+            </div>
         </div>
 
         <!-- 통계 정보 -->
@@ -77,12 +80,15 @@
                                 {{if eq .PostType "file"}}
                                     <a href="/download/{{.ID}}" class="download-btn" title="다운로드">⬇️</a>
                                 {{end}}
+                                {{if .Content}}
                                 <button class="toggle-btn" onclick="toggleContent({{.ID}})" title="내용 보기/숨기기">
                                     <span id="toggle-icon-{{.ID}}">▼</span>
                                 </button>
+                                {{end}}
                                 {{if not .DeletedAt.Valid}}
                                     <button class="delete-btn" onclick="confirmDelete({{.ID}}, '{{if .Title}}{{.Title}}{{else}}{{.FileName}}{{end}}')" title="삭제">🗑️</button>
                                 {{else}}
+                                    <button class="restore-btn" onclick="confirmRestore({{.ID}}, '{{if .Title}}{{.Title}}{{else}}{{.FileName}}{{end}}')" title="복구">♻️</button>
                                     <span class="deleted-text">삭제됨</span>
                                 {{end}}
                             </div>
@@ -116,6 +122,18 @@
         </div>
     </div>
 
+    <!-- 복구 확인 다이얼로그 -->
+    <div class="confirm-dialog" id="restoreDialog">
+        <div class="confirm-content">
+            <h3>♻️ 게시글 복구</h3>
+            <p id="restoreMessage">이 게시글을 복구하시겠습니까?</p>
+            <div class="confirm-buttons">
+                <button class="restore-btn confirm-yes" onclick="restorePost()">복구</button>
+                <button class="browse-btn confirm-no" onclick="closeRestoreDialog()">취소</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 로딩 오버레이 -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
@@ -131,6 +149,7 @@
 
     <script>
         let deletePostId = null;
+        let restorePostId = null;
 
         // 페이지 로드시 통계 로드
         document.addEventListener('DOMContentLoaded', function() {
@@ -165,6 +184,20 @@
             document.getElementById('confirmDialog').style.display = 'none';
         }
 
+        // 복구 확인 다이얼로그 표시
+        function confirmRestore(postId, title) {
+            restorePostId = postId;
+            document.getElementById('restoreMessage').textContent = 
+                `"${title}" 게시글을 복구하시겠습니까?`;
+            document.getElementById('restoreDialog').style.display = 'flex';
+        }
+
+        // 복구 확인 다이얼로그 닫기
+        function closeRestoreDialog() {
+            restorePostId = null;
+            document.getElementById('restoreDialog').style.display = 'none';
+        }
+
         // 게시글 삭제
         function deletePost() {
             if (!deletePostId) return;
@@ -180,11 +213,10 @@
                 
                 if (data.message) {
                     showNotification(data.message, 'success');
-                    // 해당 게시글 요소 제거
-                    const postElement = document.getElementById(`post-${deletePostId}`);
-                    if (postElement) {
-                        postElement.remove();
-                    }
+                    
+                    // DOM에서 제거하지 않고 상태 업데이트
+                    updatePostStatus(deletePostId, true);
+                    
                     // 통계 갱신
                     loadStats();
                 } else {
@@ -200,30 +232,101 @@
             });
         }
 
-        // 내용 토글 (메인 페이지와 동일한 함수 사용)
-        function toggleContent(postId) {
-            const content = document.getElementById(`content-${postId}`);
-            const icon = document.getElementById(`toggle-icon-${postId}`);
-            
-            if (content.style.display === 'none' || content.style.display === '') {
-                content.style.display = 'block';
-                icon.textContent = '▲';
+        // 게시글 복구
+        function restorePost() {
+            if (!restorePostId) return;
+
+            document.getElementById('loadingOverlay').style.display = 'flex';
+
+            fetch(`/restore/${restorePostId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                
+                if (data.message) {
+                    showNotification(data.message, 'success');
+                    
+                    // DOM에서 상태 업데이트
+                    updatePostStatus(restorePostId, false);
+                    
+                    // 통계 갱신
+                    loadStats();
+                } else {
+                    showNotification(data.error || '복구에 실패했습니다.', 'error');
+                }
+                closeRestoreDialog();
+            })
+            .catch(error => {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                showNotification('복구 중 오류가 발생했습니다.', 'error');
+                console.error('복구 실패:', error);
+                closeRestoreDialog();
+            });
+        }
+
+        // 게시글 상태 업데이트 (삭제됨/활성 상태 전환)
+        function updatePostStatus(postId, isDeleted) {
+            const postElement = document.getElementById(`post-${postId}`);
+            if (!postElement) return;
+
+            const actionsContainer = postElement.querySelector('.admin-actions');
+            if (!actionsContainer) return;
+
+            if (isDeleted) {
+                // 삭제 상태로 변경
+                postElement.classList.add('deleted-post');
+                
+                // 삭제 버튼을 복구 버튼과 "삭제됨" 텍스트로 교체
+                const deleteBtn = actionsContainer.querySelector('.delete-btn');
+                if (deleteBtn) {
+                    deleteBtn.remove();
+                }
+                
+                // 복구 버튼 추가
+                const restoreBtn = document.createElement('button');
+                restoreBtn.className = 'restore-btn';
+                restoreBtn.title = '복구';
+                restoreBtn.innerHTML = '♻️';
+                restoreBtn.onclick = () => confirmRestore(postId, getPostTitle(postElement));
+                
+                // "삭제됨" 텍스트 추가
+                const deletedText = document.createElement('span');
+                deletedText.className = 'deleted-text';
+                deletedText.textContent = '삭제됨';
+                
+                actionsContainer.appendChild(restoreBtn);
+                actionsContainer.appendChild(deletedText);
             } else {
-                content.style.display = 'none';
-                icon.textContent = '▼';
+                // 활성 상태로 변경
+                postElement.classList.remove('deleted-post');
+                
+                // 복구 버튼과 "삭제됨" 텍스트 제거
+                const restoreBtn = actionsContainer.querySelector('.restore-btn');
+                const deletedText = actionsContainer.querySelector('.deleted-text');
+                if (restoreBtn) restoreBtn.remove();
+                if (deletedText) deletedText.remove();
+                
+                // 삭제 버튼 추가
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.title = '삭제';
+                deleteBtn.innerHTML = '🗑️';
+                deleteBtn.onclick = () => confirmDelete(postId, getPostTitle(postElement));
+                
+                actionsContainer.appendChild(deleteBtn);
             }
         }
 
-        // 알림 표시
-        function showNotification(message, type) {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = `notification ${type} show`;
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
+        // 게시글 제목 추출 헬퍼 함수
+        function getPostTitle(postElement) {
+            const titleElement = postElement.querySelector('.post-title');
+            return titleElement ? titleElement.textContent.trim() : '제목 없음';
         }
     </script>
+    
+    <!-- 공통 스크립트 포함 -->
+    <script src="/static/script.js"></script>
 </body>
 </html>

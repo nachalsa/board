@@ -97,9 +97,11 @@
                                 {{if eq .PostType "file"}}
                                     <a href="/download/{{.ID}}" class="download-btn" title="다운로드">⬇️</a>
                                 {{end}}
+                                {{if .Content}}
                                 <button class="toggle-btn" onclick="toggleContent({{.ID}})" title="내용 보기/숨기기">
                                     <span id="toggle-icon-{{.ID}}">▼</span>
                                 </button>
+                                {{end}}
                             </div>
                         </div>
                         
@@ -133,6 +135,13 @@
         
     </footer>
 
+    <script>
+        // 서버 설정값을 JavaScript 변수로 전달
+        window.APP_CONFIG = {
+            maxFileSizeMB: {{.maxFileSizeMB}},
+            maxFileSizeText: '{{.maxFileSize}}'
+        };
+    </script>
     <script src="/static/script.js"></script>
 </body>
 </html>

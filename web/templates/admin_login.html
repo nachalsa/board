@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 로그인 - 🌱새싹 게시판</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/admin-style.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🔐 관리자 로그인</h1>
+            <p>관리자 권한이 필요합니다</p>
+        </div>
+        
+        {{if .error}}
+            <div class="error-message">{{.error}}</div>
+        {{end}}
+        
+        <form class="login-form" action="/login" method="POST">
+            <div class="form-group">
+                <label for="password">비밀번호</label>
+                <input type="password" id="password" name="password" required placeholder="관리자 비밀번호를 입력하세요">
+            </div>
+            
+            <button type="submit" class="login-btn">로그인</button>
+        </form>
+        
+        <div class="back-link">
+            <a href="http://localhost">← 메인 페이지로 돌아가기</a>
+        </div>
+    </div>
+
+    <script>
+        // 비밀번호 입력 필드에 포커스
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('password').focus();
+        });
+        
+        // Enter 키로 로그인
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.querySelector('.login-form').submit();
+            }
+        });
+    </script>
+</body>
+</html>

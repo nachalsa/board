@@ -20,14 +20,14 @@ type DatabaseConfig struct {
 }
 
 type ServerConfig struct {
-	Port      string
-	AdminPort string
+	Port          string
+	AdminPort     string
+	AdminPassword string
 }
 
 type FileConfig struct {
-	UploadsDir        string
-	UploadsDeletedDir string
-	MaxFileSize       int64
+	UploadsDir  string
+	MaxFileSize int64
 }
 
 func Load() *Config {
@@ -40,12 +40,12 @@ func Load() *Config {
 			Name:     getEnv("DB_NAME", ""),
 		},
 		Server: ServerConfig{
-			Port:      getEnv("SERVER_PORT", "8080"),
-			AdminPort: getEnv("ADMIN_PORT", "8081"),
+			Port:          getEnv("SERVER_PORT", "80"),
+			AdminPort:     getEnv("ADMIN_PORT", "8081"),
+			AdminPassword: getEnv("ADMIN_PASSWORD", "admin123"),
 		},
 		File: FileConfig{
-			UploadsDir:        getEnv("UPLOADS_DIR", "files/uploads"),
-			UploadsDeletedDir: getEnv("UPLOADS_DELETED_DIR", "files/deleted"),
+			UploadsDir:        "files",
 			MaxFileSize:       getEnvInt64("MAX_FILE_SIZE_MB", 500) * 1024 * 1024,
 		},
 	}
