@@ -88,7 +88,7 @@ func (s *PostService) GetPostFile(id int) (string, string, error) {
 func (s *PostService) CreateFilePost(title string, file *multipart.FileHeader, ipAddress string) error {
 	// 파일 크기 확인
 	if file.Size > s.cfg.File.MaxFileSize {
-		return fmt.Errorf("파일 크기는 %dMB를 초과할 수 없습니다", s.cfg.File.MaxFileSize/(1024*1024))
+		return fmt.Errorf("파일 크기는 %s를 초과할 수 없습니다", s.cfg.GetMaxFileSizeText())
 	}
 
 	// 업로드 디렉토리 생성

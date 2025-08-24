@@ -13,6 +13,11 @@ services:
       - DB_PASSWORD=filepass
       - DB_NAME=filedb
       - DB_PORT=5432
+      - SERVER_PORT=8080
+      - ADMIN_PORT=8081
+      - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-500}
+      - UPLOADS_DIR=${UPLOADS_DIR:-files/uploads}
+      - UPLOADS_DELETED_DIR=${UPLOADS_DELETED_DIR:-files/deleted}
     volumes:
       - ./files:/app/files
       - ./web:/app/web

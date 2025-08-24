@@ -28,12 +28,16 @@ func NewHandler(postService *services.PostService, cfg *config.Config) *Handler 
 func (h *Handler) IndexHandler(c *gin.Context) {
 	posts, err := h.postService.GetPosts()
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "index.html", gin.H{"error": "게시글을 불러올 수 없습니다."})
+		c.HTML(http.StatusInternalServerError, "index.html", gin.H{
+			"error": "게시글을 불러올 수 없습니다.",
+			"maxFileSize": h.cfg.GetMaxFileSizeText(),
+		})
 		return
 	}
 
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"posts": posts,
+		"maxFileSize": h.cfg.GetMaxFileSizeText(),
 	})
 }
 
