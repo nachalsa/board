@@ -243,6 +243,36 @@ func getPostStatsHandler(c *gin.Context) {
 	})
 }
 
+// 파일 다운로드 핸들러 (관리자용)
+func adminDownloadFileHandler(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "잘못된 파일 ID"})
+		return
+	}
+
+	var fileName, filePath string
+	err = adminDB.QueryRow(`
+		SELECT file_name, file_path 
+		FROM posts 
+		WHERE id = $1 AND post_type = 'file'
+	`, id).Scan(&fileName, &filePath)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "파일을 찾을 수 없습니다."})
+		return
+	}
+
+	// 파일 존재 확인
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "파일이 존재하지 않습니다."})
+		return
+	}
+
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	c.File(filePath)
+}
+
 // 관리자 서버 시작
 func startAdminServer() {
 	// 관리자 데이터베이스 초기화
@@ -261,6 +291,7 @@ func startAdminServer() {
 	r.GET("/", adminIndexHandler)
 	r.DELETE("/delete/:id", deletePostHandler)
 	r.GET("/stats", getPostStatsHandler)
+	r.GET("/download/:id", adminDownloadFileHandler)
 
 	// 서버 시작
 	log.Println("관리자 서버 시작: http://localhost:8081")
