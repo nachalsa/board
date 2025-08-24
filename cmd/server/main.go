@@ -1,7 +1,9 @@
 package main
 
 import (
+	"html/template"
 	"log"
+	"time"
 
 	"file-board/internal/config"
 	"file-board/internal/database"
@@ -42,6 +44,18 @@ func startUserServer(handler *handlers.Handler, cfg *config.Config) {
 	// 정적 파일 제공
 	r.Static("/static", "./web/static")
 
+	// 템플릿 함수 등록
+	r.SetFuncMap(template.FuncMap{
+		"kstTime": func(t time.Time) string {
+			loc, _ := time.LoadLocation("Asia/Seoul")
+			return t.In(loc).Format("2006-01-02 15:04")
+		},
+		"kstTimeISO": func(t time.Time) string {
+			loc, _ := time.LoadLocation("Asia/Seoul")
+			return t.In(loc).Format("2006-01-02T15:04:05Z07:00")
+		},
+	})
+
 	// HTML 템플릿 로드
 	r.LoadHTMLGlob("web/templates/*")
 
@@ -62,6 +76,18 @@ func startAdminServer(adminHandler *handlers.AdminHandler, userHandler *handlers
 
 	// 정적 파일 제공
 	r.Static("/static", "./web/static")
+
+	// 템플릿 함수 등록 (관리자도 동일)
+	r.SetFuncMap(template.FuncMap{
+		"kstTime": func(t time.Time) string {
+			loc, _ := time.LoadLocation("Asia/Seoul")
+			return t.In(loc).Format("2006-01-02 15:04")
+		},
+		"kstTimeISO": func(t time.Time) string {
+			loc, _ := time.LoadLocation("Asia/Seoul")
+			return t.In(loc).Format("2006-01-02T15:04:05Z07:00")
+		},
+	})
 
 	// HTML 템플릿 로드
 	r.LoadHTMLGlob("web/templates/*")

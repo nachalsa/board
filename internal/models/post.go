@@ -20,6 +20,22 @@ type Post struct {
 	DeletedAt  sql.NullTime  `json:"deleted_at"`
 }
 
+// 한국 시간대로 변환된 시간 반환
+func (p *Post) GetKSTTime() time.Time {
+	loc, _ := time.LoadLocation("Asia/Seoul")
+	return p.CreatedAt.In(loc)
+}
+
+// 삭제 시간을 한국 시간대로 변환
+func (p *Post) GetDeletedKSTTime() *time.Time {
+	if !p.DeletedAt.Valid {
+		return nil
+	}
+	loc, _ := time.LoadLocation("Asia/Seoul")
+	t := p.DeletedAt.Time.In(loc)
+	return &t
+}
+
 // PostStats 게시글 통계
 type PostStats struct {
 	TotalPosts   int `json:"total_posts"`
@@ -36,5 +52,5 @@ type FileUploadRequest struct {
 // MessageUploadRequest 메시지 업로드 요청
 type MessageUploadRequest struct {
 	Title   string `json:"title" binding:"required"`
-	Content string `json:"content" binding:"required"`
+	Content string `json:"content"`
 }

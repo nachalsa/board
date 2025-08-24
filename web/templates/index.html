@@ -50,8 +50,8 @@
                         <input type="text" id="messageTitle" name="title" placeholder="제목을 입력하세요" required>
                     </div>
                     <div class="form-group">
-                        <label for="messageContent">내용 *</label>
-                        <textarea id="messageContent" name="content" rows="6" placeholder="내용을 입력하세요" required></textarea>
+                        <label for="messageContent">내용 (선택사항)</label>
+                        <textarea id="messageContent" name="content" rows="6" placeholder="내용을 입력하세요"></textarea>
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="upload-btn">메시지 업로드</button>
@@ -78,16 +78,16 @@
                                     <div class="post-meta">
                                         <span class="file-name">{{.FileName}}</span>
                                         <span class="file-size">({{printf "%.2f" .FileSizeMB}} MB)</span>
-                                        <span class="post-date" data-timestamp="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">
-                                            {{.CreatedAt.Format "2006-01-02 15:04"}}
+                                        <span class="post-date" data-timestamp="{{kstTimeISO .CreatedAt}}">
+                                            {{kstTime .CreatedAt}}
                                         </span>
                                     </div>
                                 {{else}}
                                     <span class="post-type-icon">💬</span>
                                     <h3 class="post-title">{{.Title}}</h3>
                                     <div class="post-meta">
-                                        <span class="post-date" data-timestamp="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">
-                                            {{.CreatedAt.Format "2006-01-02 15:04"}}
+                                        <span class="post-date" data-timestamp="{{kstTimeISO .CreatedAt}}">
+                                            {{kstTime .CreatedAt}}
                                         </span>
                                     </div>
                                 {{end}}

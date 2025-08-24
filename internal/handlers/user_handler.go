@@ -64,15 +64,35 @@ func (h *Handler) UploadFileHandler(c *gin.Context) {
 
 // 메시지 업로드 핸들러
 func (h *Handler) UploadMessageHandler(c *gin.Context) {
-	var req models.MessageUploadRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "제목과 내용을 입력해주세요."})
+	// JSON과 Form-data 모두 처리
+	var title, content string
+	
+	// Content-Type 확인
+	contentType := c.GetHeader("Content-Type")
+	if contentType == "application/json" {
+		// JSON 요청 처리 (API)
+		var req models.MessageUploadRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "제목과 내용을 입력해주세요."})
+			return
+		}
+		title = req.Title
+		content = req.Content
+	} else {
+		// Form-data 요청 처리 (웹 폼)
+		title = c.PostForm("title")
+		content = c.PostForm("content")
+	}
+
+	// 제목은 필수, 내용은 선택사항
+	if title == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "제목을 입력해주세요."})
 		return
 	}
 
 	ipAddress := c.ClientIP()
 
-	err := h.postService.CreateMessagePost(req.Title, req.Content, ipAddress)
+	err := h.postService.CreateMessagePost(title, content, ipAddress)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "메시지 업로드 실패"})
 		return
